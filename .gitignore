@@ -1,0 +1,8 @@
+/cmake-build-debug/*
+/.idea/*
+*.swp
+*.autosave
+*.user
+*.user.*
+*.tar.gz
+/doc/*
