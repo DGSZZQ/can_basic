@@ -1,0 +1,7 @@
+<launch>
+
+
+  <node name="can_decoder" pkg="can_basic" type="can_decoder_node" output = "screen" />
+
+
+</launch>	

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(can_decoder)
+project(can_basic)
 set(CMAKE_BUILD_TYPE Release)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
@@ -50,11 +50,11 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  ReceiveMsg.msg
+  SendMsg.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -107,8 +107,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES can_decoder
+  LIBRARIES can_basic
   CATKIN_DEPENDS roscpp rospy std_msgs
+  CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
 )
 
@@ -130,7 +131,7 @@ add_library(controlcan
 
 set_target_properties(controlcan
     PROPERTIES IMPORTED_LOCATION
-    /home/abc/catkin_ws/src/can_decoder/include/can_decoder/libcontrolcan.so
+    /home/abc/catkin_ws/src/can_basic/include/can_basic/libcontrolcan.so
 )
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -140,10 +141,15 @@ set_target_properties(controlcan
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_node src/can_decoder_node.cpp)
-add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME}_node  ${catkin_LIBRARIES})
-target_link_libraries(${PROJECT_NAME}_node  controlcan)
+add_executable(can_decoder_node src/can_decoder_node.cpp)
+add_dependencies(can_decoder_node can_basic_generate_message_cpp ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(can_decoder_node  ${catkin_LIBRARIES})
+target_link_libraries(can_decoder_node  controlcan)
+
+add_executable(can_encoder_node src/can_encoder_node.cpp)
+add_dependencies(can_encoder_node can_basic_generate_message_cpp ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(can_encoder_node  ${catkin_LIBRARIES})
+target_link_libraries(can_encoder_node  controlcan)
 
 #############
 ## Install ##
