@@ -89,26 +89,46 @@ main(int argc,  char **argv)
     int count = 0;
     pthread_t threadid;
 
+
+    int times = 200;
+    BYTE data_FR_T[8] = {0x02, 0x01, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00};
+    BYTE data_FL_T[8] = {0x01, 0x01, 0xF8, 0xFF, 0x00, 0x00, 0x00, 0x00};
+    while(times--)
+    {
+        Send_frame(send, 1, 0x0A510102, sizeof(data_FR_T), data_FR_T);
+        Send_frame(send, 1, 0x0A510101, sizeof(data_FL_T), data_FL_T);
+    }
+
     while (ros::ok()){
         if(count==0)
             my_pthread_create(&threadid, NULL, receive_func, &m_run0, &channel, &count);
-
-        int times = 1;
-        BYTE data[3] = {0x34, 0x45, 0xf3};
+/*speed-control
+        int times = 100;
+        //BYTE data_RR[8] = {0x04, 0x02, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00};
+        //BYTE data_RL[8] = {0x03, 0x02, 0x00, 0x00, 0xFE, 0xFF, 0x00, 0x00};
+        BYTE data_FR[8] = {0x02, 0x02, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00};   //~86rpm
+        BYTE data_FL[8] = {0x01, 0x02, 0x00, 0x00, 0xFF, 0x67, 0x00, 0x00};   //~87rpm
         while(times--)
         {
-            if(Send_frame(send, 1, 123, sizeof(data), data) == 1)
-            {
-                Send_info_display(send, 1, count++);
-                send[0].ID+=1;
-            }
-            else continue;
+            //Send_frame(send, 1, 0x0A510104, sizeof(data_RR), data_RR);
+            //Send_frame(send, 1, 0x0A510103, sizeof(data_RL), data_RL);
+            Send_frame(send, 1, 0x0A510102, sizeof(data_FR), data_FR);
+            Send_frame(send, 1, 0x0A510101, sizeof(data_FL), data_FL);
         }
-
+*/
+        int times = 100;
+        BYTE data_FR_T[8] = {0x02, 0x01, 0x01, 0x55, 0x00, 0x00, 0x00, 0x00};
+        BYTE data_FL_T[8] = {0x01, 0x01, 0xFF, 0x22, 0x00, 0x00, 0x00, 0x00};
+        while(times--)
+        {
+            Send_frame(send, 1, 0x0A510102, sizeof(data_FR_T), data_FR_T);
+            Send_frame(send, 1, 0x0A510101, sizeof(data_FL_T), data_FL_T);
+        }
         ros::spinOnce();
 
         loop_rate.sleep();
     }
+
     return 0;
 }
 
