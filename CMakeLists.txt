@@ -54,6 +54,7 @@ add_message_files(
   FILES
   ReceiveMsg.msg
   SendMsg.msg
+  StimMsg.msg
 )
 
 ## Generate services in the 'srv' folder

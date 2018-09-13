@@ -11,6 +11,7 @@
 #include "ros/ros.h"
 #include "can_basic/ReceiveMsg.h"
 #include "can_basic/SendMsg.h"
+#include "can_basic/StimMsg.h"
 #include <can_basic/controlcan.h>
 
 // threads avails more parameters
@@ -59,16 +60,91 @@ void Send_info_display(VCI_CAN_OBJ * send, int channel, int count);
 void Receive_info_display(VCI_CAN_OBJ * rec, int channel, int reclen, int count);
 void *receive_func(void* param, void* channel, void* Count);
 
-void chatterCallback(const can_basic::SendMsg::ConstPtr& msg)
-{
+//void chatterCallback(const can_basic::SendMsg::ConstPtr& msg)
+//{
+//    int channel = 1;
+//    VCI_CAN_OBJ send[1];
+//    BYTE * data = new BYTE(msg->len);
+//    for (int i=0; i<msg->len; i++) data[i] = char(msg->data[i]);
+//    if (Send_frame(send, channel, msg->ID, msg->len, data) == 1){
+//        Send_info_display(send, channel, sub_count++);
+//        ROS_INFO("CAN%d has sent a message, ID = %d", channel+1, msg->ID);
+//    }
+//}
+
+class basic_can_control {
+private:
+    ros::NodeHandle m_node, m_privateNode;
+    ros::Subscriber sub; // for can msg to send
+    ros::Subscriber imu; // for imu msg
+    void chatterCallback(const can_basic::SendMsg::ConstPtr& msg); // for can msg to send
+    void chatterCallback_imu(const can_basic::StimMsg::ConstPtr& msg); // for can msg to send
+public:
+    BYTE* data_FR_T;
+    BYTE* data_FL_T;
+    basic_can_control(const ros::NodeHandle &node, const ros::NodeHandle &prinode);
+    ~basic_can_control() {}
+    ULONG Send_frame(VCI_CAN_OBJ * send, int CAN_id, UINT id, BYTE datalen=1 ,BYTE* data=new BYTE(1), BYTE externflag=1,\
+                   BYTE sendtype=0, BYTE remoteflag=0);
+    void Send_info_display(VCI_CAN_OBJ * send, int channel, int count);
+};
+
+basic_can_control::basic_can_control(const ros::NodeHandle &node, const ros::NodeHandle &prinode):
+    m_node(node), m_privateNode(prinode) {
+    BYTE x[8] = {0x02, 0x01, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00};
+    data_FR_T = x;
+    BYTE y[8] = {0x01, 0x01, 0xF8, 0xFF, 0x00, 0x00, 0x00, 0x00};
+    data_FL_T = y;
+    sub = m_node.subscribe("can_tosend", 1000, &basic_can_control::chatterCallback, this);
+    imu = m_node.subscribe("stim", 1000, &basic_can_control::chatterCallback_imu, this);
+}
+
+void basic_can_control::chatterCallback(const can_basic::SendMsg::ConstPtr& msg){
     int channel = 1;
     VCI_CAN_OBJ send[1];
     BYTE * data = new BYTE(msg->len);
     for (int i=0; i<msg->len; i++) data[i] = char(msg->data[i]);
-    if (Send_frame(send, channel, msg->ID, msg->len, data) == 1){
+    if (this->Send_frame(send, channel, msg->ID, msg->len, data) == 1){
         Send_info_display(send, channel, sub_count++);
         ROS_INFO("CAN%d has sent a message, ID = %d", channel+1, msg->ID);
     }
+}
+
+void basic_can_control::chatterCallback_imu(const can_basic::StimMsg::ConstPtr& msg){
+
+}
+
+ULONG basic_can_control::Send_frame(VCI_CAN_OBJ * send, int CAN_id, UINT id, BYTE datalen ,BYTE* data, BYTE externflag,\
+                                    BYTE sendtype, BYTE remoteflag) {
+    //VCI_CAN_OBJ send[1];
+    send->ID=id;
+    send->SendType=sendtype;
+    send->RemoteFlag=remoteflag;
+    send->ExternFlag=externflag;
+    send->DataLen=datalen;
+
+    int i=0;
+    for(i=0; i<datalen; i++){
+        send->Data[i] = data[i];
+    }
+    return VCI_Transmit(VCI_USBCAN2, 0, CAN_id, send, 1);
+}
+
+void basic_can_control::Send_info_display(VCI_CAN_OBJ * send, int channel, int count){
+    printf("Index:%04d  ",count);
+    printf("CAN%d TX ID:0x%08X", channel+1, send[0].ID);
+    if(send[0].ExternFlag==0) printf(" Standard ");
+    if(send[0].ExternFlag==1) printf(" Extend   ");
+    if(send[0].RemoteFlag==0) printf(" Data   ");
+    if(send[0].RemoteFlag==1) printf(" Remote ");
+    printf("DLC:0x%02X",send[0].DataLen);
+    printf(" data:0x");
+
+    for(int i=0;i<send[0].DataLen;i++)
+    {
+        printf(" %02X",send[0].Data[i]);
+    }
+    printf("\n");
 }
 
 main(int argc,  char **argv)
@@ -76,8 +152,9 @@ main(int argc,  char **argv)
 
     ros::init(argc, argv, "can_decoder");
     ros::NodeHandle n;
-    ros::Subscriber sub = n.subscribe("can_tosend", 1000, chatterCallback);
+    //ros::Subscriber sub = n.subscribe("can_tosend", 1000, chatterCallback);
     ros::Rate loop_rate(10);
+    basic_can_control Can_control(ros::NodeHandle(), ros::NodeHandle("~"));
 
     CAN_init();
 
@@ -91,38 +168,25 @@ main(int argc,  char **argv)
 
 
     int times = 200;
-    BYTE data_FR_T[8] = {0x02, 0x01, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00};
-    BYTE data_FL_T[8] = {0x01, 0x01, 0xF8, 0xFF, 0x00, 0x00, 0x00, 0x00};
+//    BYTE data_FR_T[8] = {0x02, 0x01, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00};
+//    BYTE data_FL_T[8] = {0x01, 0x01, 0xF8, 0xFF, 0x00, 0x00, 0x00, 0x00};
     while(times--)
     {
-        Send_frame(send, 1, 0x0A510102, sizeof(data_FR_T), data_FR_T);
-        Send_frame(send, 1, 0x0A510101, sizeof(data_FL_T), data_FL_T);
+        Can_control.Send_frame(send, 1, 0x0A510102, sizeof(Can_control.data_FR_T), Can_control.data_FR_T);
+        Can_control.Send_frame(send, 1, 0x0A510101, sizeof(Can_control.data_FL_T), Can_control.data_FL_T);
     }
 
     while (ros::ok()){
         if(count==0)
             my_pthread_create(&threadid, NULL, receive_func, &m_run0, &channel, &count);
-/*speed-control
+
         int times = 100;
-        //BYTE data_RR[8] = {0x04, 0x02, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00};
-        //BYTE data_RL[8] = {0x03, 0x02, 0x00, 0x00, 0xFE, 0xFF, 0x00, 0x00};
-        BYTE data_FR[8] = {0x02, 0x02, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00};   //~86rpm
-        BYTE data_FL[8] = {0x01, 0x02, 0x00, 0x00, 0xFF, 0x67, 0x00, 0x00};   //~87rpm
+//        BYTE data_FR_T[8] = {0x02, 0x01, 0x01, 0x55, 0x00, 0x00, 0x00, 0x00};
+//        BYTE data_FL_T[8] = {0x01, 0x01, 0xFF, 0x22, 0x00, 0x00, 0x00, 0x00};
         while(times--)
         {
-            //Send_frame(send, 1, 0x0A510104, sizeof(data_RR), data_RR);
-            //Send_frame(send, 1, 0x0A510103, sizeof(data_RL), data_RL);
-            Send_frame(send, 1, 0x0A510102, sizeof(data_FR), data_FR);
-            Send_frame(send, 1, 0x0A510101, sizeof(data_FL), data_FL);
-        }
-*/
-        int times = 100;
-        BYTE data_FR_T[8] = {0x02, 0x01, 0x01, 0x55, 0x00, 0x00, 0x00, 0x00};
-        BYTE data_FL_T[8] = {0x01, 0x01, 0xFF, 0x22, 0x00, 0x00, 0x00, 0x00};
-        while(times--)
-        {
-            Send_frame(send, 1, 0x0A510102, sizeof(data_FR_T), data_FR_T);
-            Send_frame(send, 1, 0x0A510101, sizeof(data_FL_T), data_FL_T);
+            Can_control.Send_frame(send, 1, 0x0A510102, sizeof(Can_control.data_FR_T), Can_control.data_FR_T);
+            Can_control.Send_frame(send, 1, 0x0A510101, sizeof(Can_control.data_FL_T), Can_control.data_FL_T);
         }
         ros::spinOnce();
 
