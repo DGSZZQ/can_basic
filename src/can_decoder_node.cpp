@@ -80,8 +80,10 @@ private:
     void chatterCallback(const can_basic::SendMsg::ConstPtr& msg); // for can msg to send
     void chatterCallback_imu(const can_basic::StimMsg::ConstPtr& msg); // for can msg to send
 public:
-    BYTE* data_FR_T;
-    BYTE* data_FL_T;
+    BYTE data_FR_T[8];
+    BYTE data_FL_T[8];
+    float velocity;
+    float delta_t;
     basic_can_control(const ros::NodeHandle &node, const ros::NodeHandle &prinode);
     ~basic_can_control() {}
     ULONG Send_frame(VCI_CAN_OBJ * send, int CAN_id, UINT id, BYTE datalen=1 ,BYTE* data=new BYTE(1), BYTE externflag=1,\
@@ -91,10 +93,14 @@ public:
 
 basic_can_control::basic_can_control(const ros::NodeHandle &node, const ros::NodeHandle &prinode):
     m_node(node), m_privateNode(prinode) {
-    BYTE x[8] = {0x02, 0x01, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00};
-    data_FR_T = x;
-    BYTE y[8] = {0x01, 0x01, 0xF8, 0xFF, 0x00, 0x00, 0x00, 0x00};
-    data_FL_T = y;
+    velocity = 0;
+    delta_t = 0.0005;
+    BYTE x[8] = {0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    BYTE y[8] = {0x01, 0x01, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00};
+    for (int i=0; i<8; i++){
+        data_FR_T[i] = x[i];
+        data_FL_T[i] = y[i];
+    }
     sub = m_node.subscribe("can_tosend", 1000, &basic_can_control::chatterCallback, this);
     imu = m_node.subscribe("stim", 1000, &basic_can_control::chatterCallback_imu, this);
 }
@@ -111,6 +117,7 @@ void basic_can_control::chatterCallback(const can_basic::SendMsg::ConstPtr& msg)
 }
 
 void basic_can_control::chatterCallback_imu(const can_basic::StimMsg::ConstPtr& msg){
+    velocity += msg->acc_x * delta_t;
 
 }
 
@@ -167,9 +174,11 @@ main(int argc,  char **argv)
     pthread_t threadid;
 
 
-    int times = 200;
-//    BYTE data_FR_T[8] = {0x02, 0x01, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00};
-//    BYTE data_FL_T[8] = {0x01, 0x01, 0xF8, 0xFF, 0x00, 0x00, 0x00, 0x00};
+    int times = 2000;
+    Can_control.data_FR_T[2] = 0x07;
+    Can_control.data_FR_T[3] = 0x00;
+    Can_control.data_FL_T[2] = 0xF8;
+    Can_control.data_FL_T[3] = 0xFF;
     while(times--)
     {
         Can_control.Send_frame(send, 1, 0x0A510102, sizeof(Can_control.data_FR_T), Can_control.data_FR_T);
@@ -181,8 +190,10 @@ main(int argc,  char **argv)
             my_pthread_create(&threadid, NULL, receive_func, &m_run0, &channel, &count);
 
         int times = 100;
-//        BYTE data_FR_T[8] = {0x02, 0x01, 0x01, 0x55, 0x00, 0x00, 0x00, 0x00};
-//        BYTE data_FL_T[8] = {0x01, 0x01, 0xFF, 0x22, 0x00, 0x00, 0x00, 0x00};
+        Can_control.data_FR_T[2] = 0x04;
+        Can_control.data_FR_T[3] = 0x00;
+        Can_control.data_FL_T[2] = 0xFB;
+        Can_control.data_FL_T[3] = 0xFF;
         while(times--)
         {
             Can_control.Send_frame(send, 1, 0x0A510102, sizeof(Can_control.data_FR_T), Can_control.data_FR_T);

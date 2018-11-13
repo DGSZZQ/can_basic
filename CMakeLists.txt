@@ -132,7 +132,7 @@ add_library(controlcan
 
 set_target_properties(controlcan
     PROPERTIES IMPORTED_LOCATION
-    /home/abc/catkin_ws/src/can_basic/include/can_basic/libcontrolcan.so
+    /home/dsz/catkin_ws/src/can_basic/include/can_basic/libcontrolcan.so
 )
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
